@@ -118,6 +118,42 @@ def grab_screen(sct, monitor):
     img = np.array(sct_img)
     return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
+def match_notification_multiscale(screen, tmpl):
+    """
+    Caută șablonul pe ecran adaptându-se inteligent la rezoluția monitorului
+    (1080p Full HD, 1440p 2K, 720p sau custom) în zona din dreapta unde apar
+    notificările în FiveM / GTA RP.
+    Oferă viteză maximă și 0% impact asupra FPS-urilor.
+    """
+    sh, sw = screen.shape[:2]
+    # Notificările în GTA 5 / FiveM apar pe partea dreaptă a ecranului
+    roi = screen[int(sh * 0.10):int(sh * 0.85), int(sw * 0.50):sw]
+
+    # Baza șablonului este la scara Full HD (1920x1080)
+    base_s = sw / 1920.0
+    scales = [base_s * 0.98, base_s, base_s * 1.02, 1.0]
+    scales = sorted(list(set([s for s in scales if s > 0.1])))
+
+    best_val = 0.0
+    best_loc = None
+
+    for s in scales:
+        tw = int(tmpl.shape[1] * s)
+        th = int(tmpl.shape[0] * s)
+        if tw <= 0 or th <= 0 or tw >= roi.shape[1] or th >= roi.shape[0]:
+            continue
+
+        interp = cv2.INTER_CUBIC if s >= 1.0 else cv2.INTER_AREA
+        scaled_tmpl = cv2.resize(tmpl, (tw, th), interpolation=interp)
+        res = cv2.matchTemplate(roi, scaled_tmpl, cv2.TM_CCOEFF_NORMED)
+        _, max_v, _, max_l = cv2.minMaxLoc(res)
+
+        if max_v > best_val:
+            best_val = max_v
+            best_loc = max_l
+
+    return best_val, best_loc
+
 def main():
     os.system("cls" if os.name == "nt" else "clear")
     print("="*68)
@@ -131,22 +167,17 @@ def main():
     print(f"[i] PRAG DE ÎNCREDERE STRICT: {threshold*100:.1f}%")
     print(f"    --> Dacă potrivirea este sub {threshold*100:.1f}%, NU se înregistrează!")
     print(f"[i] Cooldown între curse: {config['cooldown_seconds']}s")
-    print(f"[i] Tastă rapidă de urgență în joc: [{config['manual_hotkey'].upper()}]\n")
+    print(f"[i] Tastă rapidă manuală în joc: [{config['manual_hotkey'].upper()}]")
+    print(f"[i] Tastă captură calibrare: [{config['capture_hotkey'].upper()}]\n")
 
     # Load templates
     cursa_tmpl = None
-    header_tmpl = None
-
     if os.path.exists(CURSA_TEMPLATE_FILE):
         cursa_tmpl = cv2.imread(CURSA_TEMPLATE_FILE)
-        print(f"[✓] Model text cursa '{CURSA_TEMPLATE_FILE}' încărcat!")
+        print(f"[✓] Model text cursă '{CURSA_TEMPLATE_FILE}' încărcat!")
     elif os.path.exists("notificare.png"):
         cursa_tmpl = cv2.imread("notificare.png")
-        print(f"[✓] Model 'notificare.png' încărcat!")
-
-    if os.path.exists(HEADER_TEMPLATE_FILE):
-        header_tmpl = cv2.imread(HEADER_TEMPLATE_FILE)
-        print(f"[✓] Model antet '{HEADER_TEMPLATE_FILE}' încărcat!")
+        print(f"[✓] Model de rezervă 'notificare.png' încărcat!")
 
     if cursa_tmpl is None:
         print("[!] ATENȚIE: Nu s-a găsit fișierul model de detecție!")
@@ -170,8 +201,18 @@ def main():
         print(f"\n[⚡ TASTĂ MANUALĂ] Ai apăsat tasta {config['manual_hotkey'].upper()} în joc!")
         register_flight_in_firebase(config, "Adăugat manual din joc")
 
+    def on_capture_hotkey():
+        try:
+            with mss.mss() as sct_cap:
+                screen_cap = grab_screen(sct_cap, sct_cap.monitors[1])
+                cv2.imwrite("calibrare_ecran.png", screen_cap)
+                print("\n[📸 CALIBRARE] S-a salvat captura de ecran în 'calibrare_ecran.png'!")
+        except Exception as ce:
+            print(f"[!] Eroare captură: {ce}")
+
     try:
         keyboard.add_hotkey(config["manual_hotkey"], on_manual_hotkey)
+        keyboard.add_hotkey(config["capture_hotkey"], on_capture_hotkey)
     except Exception as e:
         print(f"[!] Nu s-au putut înregistra tastele: {e}")
 
@@ -185,9 +226,8 @@ def main():
                 if cursa_tmpl is not None and (now - last_trigger_time > cooldown):
                     screen = grab_screen(sct, monitor)
 
-                    # 1. Caută textul 'din aceasta cursa!'
-                    res_cursa = cv2.matchTemplate(screen, cursa_tmpl, cv2.TM_CCOEFF_NORMED)
-                    _, max_c, _, loc_c = cv2.minMaxLoc(res_cursa)
+                    # Caută textul 'din aceasta cursa!' adaptându-se la rezoluție
+                    max_c, _ = match_notification_multiscale(screen, cursa_tmpl)
 
                     # Dacă scorul este mare (peste 97%)
                     if max_c >= threshold:
@@ -196,7 +236,7 @@ def main():
                         register_flight_in_firebase(config, info)
                         print(f"[⏳] Cooldown activ ({cooldown} secunde)...")
                     elif max_c >= 0.70:
-                        # Afiseaza in consola daca a detectat o notificare similara dar a respins-o pentru ca e sub 97%!
+                        # Afișează în consolă doar când detectează o notificare diferită dar o respinge
                         print(f"[ℹ️ IGNORAT] Notificare detectată pe ecran ({max_c*100:.1f}%), dar este SUB pragul cerut de {threshold*100:.1f}% -> REFUZAT!")
 
                 time.sleep(config.get("scan_interval_seconds", 0.8))
