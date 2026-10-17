@@ -1,53 +1,43 @@
 =============================================================================
-   ✈️ FlyUS Auto-Scanner • GTA 5 Roleplay (Ghid de utilizare)
+   ✈️ FlyUS Auto-Scanner • GTA 5 Roleplay (Program Standalone .EXE)
 =============================================================================
 
-Acest programel iti monitorizeaza ecranul in timp ce joci GTA 5 / FiveM.
-Cand termini o cursa si apare notificarea cu banii pe ecran, scannerul o
-detecteaza automat si trimite cursa la baza de date, iar telefonul tau trece
-automat la urmatoarea cursa (0/50 -> 1/50 -> 2/50 etc.) fara sa atingi nimic!
-
-Nu consuma resurse (< 1% CPU) si este 100% NEDETECTABIL de joc/anticheat
-(functioneaza ca OBS sau Discord, doar citeste ecranul).
+NU AI NEVOIE DE PYTHON SAU ALTE PROGRAME INSTALATE!
+Programul "FlyUS_Scanner.exe" este 100% de sine statator si functioneaza
+direct pe orice calculator cu Windows.
 
 -----------------------------------------------------------------------------
-PASUL 1: Instalare (o singura data)
+CUM FUNCTIONEAZA:
 -----------------------------------------------------------------------------
-1. Ai nevoie de Python instalat pe PC (https://www.python.org/downloads/).
-   ATENTIE: Cand instalezi Python, bifeaza neaparat: "Add python.exe to PATH".
-2. Da dublu-click pe fisierul:
-   👉 INSTALEAZA_DEPENDINTE.bat
-   Acesta va instala automat bibliotecile necesare (OpenCV, MSS etc.).
+In timp ce te joci GTA 5 / FiveM, acest programel se uita la ecran.
+Cand termini o cursa de avion si apare pe ecran notificarea verde cu banii,
+scannerul o detecteaza si trimite automat cursa la baza de date.
+Telefonul tau deschis pe site trece automat la urmatoarea cursa (0/50 -> 1/50)!
+
+Nu afecteaza FPS-urile (< 1% CPU) si este 100% nedetectabil de joc.
 
 -----------------------------------------------------------------------------
-PASUL 2: Configureaza numele tau de pilot
+CUM IL FOLOSESTI (in 2 pasi):
 -----------------------------------------------------------------------------
-1. Deschide fisierul "scanner_config.json" cu Notepad.
-2. La prima linie scrie numele tau de utilizator cu care te-ai logat pe site:
-   "username": "numele_tau"
-   (Daca folosesti contul "ion", il lasi asa cum e).
-3. Salveaza fisierul (Ctrl+S).
-
------------------------------------------------------------------------------
-PASUL 3: Cum il folosesti in joc
------------------------------------------------------------------------------
-1. Deschide pe telefon site-ul:
-   👉 https://foxyz666.github.io/airog/
-   si logheaza-te pe contul tau.
+1. Deschide fisierul "scanner_config.json" cu Notepad:
+   - La prima linie schimba numele de utilizator cu al tau de pe site:
+     "username": "ion"
+   - Salveaza fisierul (Ctrl+S).
 
 2. Da dublu-click pe:
-   👉 START_SCANNER.bat
+   👉 FlyUS_Scanner.exe
    Se deschide o fereastra neagra care spune "GREEN SCANNER ACTIV".
 
-3. Intra in GTA 5 / FiveM si zboara!
-   - Cand aterizezi si apare notificarea cu banii pe ecran, PC-ul va bipaie,
-     iar pe telefon contorul se incrementeaza automat (+1 cursă)!
+3. Intra in GTA 5 si piloteaza linistit!
+   Deschide pe telefon site-ul:
+   👉 https://foxyz666.github.io/airog/
+   iar cursele se vor numara automat!
 
 -----------------------------------------------------------------------------
-TASTE RAPIDE IN JOC (fara sa dai Alt-Tab):
+TASTE RAPIDE IN JOC (fara Alt-Tab):
 -----------------------------------------------------------------------------
-- [F10] : Daca vrei sa adaugi o cursa manual direct de pe tastatura in joc.
-- [F9]  : Daca rezolutia ta e diferita si vrei sa faci o poza noua de calibrare.
+- [F10] : Apasa tasta F10 oricand in joc daca vrei sa adaugi o cursa manual.
+- [F9]  : Daca ai rezolutie diferita si vrei sa faci o poza de calibrare.
 
-Zboruri usoare! ✈️
+Zboruri placute! ✈️
 =============================================================================
