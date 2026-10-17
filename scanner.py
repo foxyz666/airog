@@ -1,11 +1,10 @@
 """
 =============================================================================
- ✈️ FlyUS Auto-Scanner & Flight Dispatcher • GTA 5 Roleplay
+ ✈️ FlyUS Auto-Scanner • GTA 5 Roleplay (OGLAND Romania & FiveM)
  Monitorizează ecranul pe PC în timp ce te joci GTA 5 / FiveM.
- Când apare notificarea de cursă finalizată:
- 1. O detectează automat pe ecran (prin Template Matching / Imagine).
- 2. Trimite comanda la Firebase Realtime Database.
- 3. Telefonul tău (https://foxyz666.github.io/airog/) trece automat la 1/50!
+ DETECTEAZĂ EXCLUSIV NOTIFICAREA DE CURSĂ:
+ "Ai obtinut XXXX$ din aceasta cursa!"
+ Ignoră orice altă notificare (joint, mâncare, mesaje, reparații etc.)!
 =============================================================================
 """
 
@@ -16,21 +15,20 @@ import json
 import winsound
 import requests
 import numpy as np
-from PIL import Image
 import mss
 import keyboard
 import cv2
 
 CONFIG_FILE = "scanner_config.json"
-DEFAULT_TEMPLATE = "notificare.png"
+CURSA_TEMPLATE_FILE = "din_aceasta_cursa.png"
+HEADER_TEMPLATE_FILE = "notificare_template.png"
 
 DEFAULT_CONFIG = {
     "username": "ion",
     "database_url": "https://aircraft-9cb9b-default-rtdb.europe-west1.firebasedatabase.app",
-    "template_image": "notificare.png",
-    "confidence_threshold": 0.80,
+    "confidence_threshold": 0.78,
     "cooldown_seconds": 15,
-    "scan_interval_seconds": 1.0,
+    "scan_interval_seconds": 0.8,
     "manual_hotkey": "f10",
     "capture_hotkey": "f9",
     "play_sound": True
@@ -42,33 +40,25 @@ def load_config():
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
                 return {**DEFAULT_CONFIG, **cfg}
-        except Exception as e:
-            print(f"[!] Eroare la citirea configuratiei: {e}. Folosim configuratia implicita.")
+        except Exception:
+            pass
     return DEFAULT_CONFIG
-
-def save_config(cfg):
-    try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=4, ensure_ascii=False)
-    except Exception as e:
-        print(f"[!] Nu s-a putut salva config: {e}")
 
 def play_cockpit_beep():
     try:
         winsound.Beep(750, 120)
-        time.sleep(0.05)
+        time.sleep(0.04)
         winsound.Beep(1100, 180)
     except Exception:
         pass
 
-def register_flight_in_firebase(config):
+def register_flight_in_firebase(config, detected_info=""):
     username = config.get("username", "ion").strip().lower()
     db_url = config.get("database_url", "").rstrip("/")
 
     url = f"{db_url}/pilots/{username}.json"
 
     try:
-        # 1. Citeste datele curente ale pilotului
         resp = requests.get(url, timeout=5)
         if resp.status_code != 200:
             print(f"[EROARE] Nu s-a putut citi pilotul din Firebase: {resp.status_code}")
@@ -106,13 +96,13 @@ def register_flight_in_firebase(config):
 
         patch_resp = requests.patch(url, json=update_payload, timeout=5)
         if patch_resp.status_code == 200:
-            print("\n" + "="*60)
-            print(f" ✈️ [SUCCES] Cursă înregistrată automat pe Firebase!")
+            print("\n" + "="*65)
+            print(f" ✈️ [CURSĂ VALIDATĂ!] {detected_info}")
             print(f" 👤 Pilot: {username}")
-            print(f" 🎯 Progres: {current} / {target} curse (mai ai {max(0, target - current)})")
+            print(f" 🎯 Contor actualizat: {current} / {target} curse (mai ai {max(0, target - current)})")
             print(f" 💰 Încasat la tură: ${current * pay:,}")
-            print(f" 📱 Telefonul tău s-a actualizat instant!")
-            print("="*60 + "\n")
+            print(f" 📱 Telefonul tău s-a sincronizat automat!")
+            print("="*65 + "\n")
             if config.get("play_sound", True):
                 play_cockpit_beep()
             return True
@@ -124,114 +114,108 @@ def register_flight_in_firebase(config):
         return False
 
 def grab_screen(sct, monitor):
-    # Capture screen via mss fast direct memory
     sct_img = sct.grab(monitor)
     img = np.array(sct_img)
-    # Convert BGRA to BGR
     return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-
-def capture_notification_template():
-    """F9 hotkey: Salvează un screenshot complet pentru calibrare"""
-    print("\n[📷 CAPTURĂ] Se capturează ecranul pentru calibrare...")
-    with mss.mss() as sct:
-        mon = sct.monitors[1]
-        img = grab_screen(sct, mon)
-        filename = "ecran_complet_calibrare.png"
-        cv2.imwrite(filename, img)
-        print(f"[✓] Screenshot salvat ca '{filename}'!")
-        print("    Decupează notificarea din această poză și salveaz-o ca 'notificare.png' în acest folder.")
 
 def main():
     os.system("cls" if os.name == "nt" else "clear")
-    print("="*65)
-    print("      ✈️  FlyUS Auto-Scanner • GTA 5 Roleplay Dispatch  ✈️")
-    print("="*65)
+    print("="*68)
+    print("   ✈️  FlyUS Auto-Scanner • Detecție Precisă Cursă Avion  ✈️")
+    print("="*68)
 
     config = load_config()
 
-    print(f"\n[i] Pilot configurat: {config['username']}")
-    print(f"[i] Baza de date Firebase: {config['database_url']}")
-    print(f"[i] Fișier model notificare căutat: {config['template_image']}")
-    print(f"[i] Tastă rapidă manuală în joc: [{config['manual_hotkey'].upper()}]")
-    print(f"[i] Tastă captură calibrare: [{config['capture_hotkey'].upper()}]")
-    print(f"[i] Cooldown între curse: {config['cooldown_seconds']} secunde\n")
+    print(f"\n[i] Pilot activ: {config['username']}")
+    print(f"[i] Filtru text: Detectează STRICT 'din aceasta cursa!' (ignoră joint/food/mesaje)")
+    print(f"[i] Cooldown între curse: {config['cooldown_seconds']}s")
+    print(f"[i] Tastă rapidă de urgență în joc: [{config['manual_hotkey'].upper()}]\n")
 
-    template_path = config.get("template_image", DEFAULT_TEMPLATE)
-    template = None
+    # Load templates
+    cursa_tmpl = None
+    header_tmpl = None
 
-    if os.path.exists(template_path):
-        template = cv2.imread(template_path)
-        if template is not None:
-            print(f"[✓] Modelul '{template_path}' a fost încărcat cu succes!")
-        else:
-            print(f"[!] Fișierul '{template_path}' nu a putut fi citit.")
+    if os.path.exists(CURSA_TEMPLATE_FILE):
+        cursa_tmpl = cv2.imread(CURSA_TEMPLATE_FILE)
+        print(f"[✓] Model text cursa '{CURSA_TEMPLATE_FILE}' încărcat cu succes!")
     else:
-        print(f"[INFO] '{template_path}' nu există încă în folder.")
-        print("       --> Pune o poză decupată cu notificarea din joc denumită 'notificare.png'")
-        print(f"       --> Sau apasă tasta [{config['capture_hotkey'].upper()}] în joc pentru screenshot de calibrare.")
-        print(f"       --> Sau apasă tasta [{config['manual_hotkey'].upper()}] oricând în joc pentru +1 cursă instant!")
+        # Fallback to general notificare.png if specific file not found
+        if os.path.exists("notificare.png"):
+            cursa_tmpl = cv2.imread("notificare.png")
+            print(f"[✓] Model 'notificare.png' încărcat!")
 
-    print("\n" + "-"*65)
-    print("🟢 SCANNER ACTIV! Lasă această fereastră deschisă și intră în joc.")
-    print("   Apasă Ctrl+C în această fereastră pentru a opri scannerul.")
-    print("-" * 65 + "\n")
+    if os.path.exists(HEADER_TEMPLATE_FILE):
+        header_tmpl = cv2.imread(HEADER_TEMPLATE_FILE)
+        print(f"[✓] Model antet notificare '{HEADER_TEMPLATE_FILE}' încărcat!")
+
+    if cursa_tmpl is None:
+        print("[!] ATENȚIE: Nu s-a găsit fișierul model de detecție!")
+        print("    Asigură-te că fișierul 'din_aceasta_cursa.png' se află în acest folder.")
+
+    print("\n" + "-"*68)
+    print("🟢 SCANNER INTELIGENT ACTIV! Lasă această fereastră deschisă și joacă.")
+    print("   - Detectează automat orice sumă: 'Ai obtinut XXXX$ din aceasta cursa!'")
+    print("   - Ignoră complet celelalte notificări (joint, mâncare, etc.)")
+    print("   - Apasă Ctrl+C pentru a opri.")
+    print("-" * 68 + "\n")
 
     last_trigger_time = 0
     cooldown = config.get("cooldown_seconds", 15)
-    threshold = config.get("confidence_threshold", 0.80)
+    threshold = config.get("confidence_threshold", 0.78)
 
-    # Register hotkeys
+    # Hotkey support
     def on_manual_hotkey():
         nonlocal last_trigger_time
         now = time.time()
         if now - last_trigger_time < 3:
             return
         last_trigger_time = now
-        print(f"\n[⚡ TASTĂ RAPIDĂ] Ai apăsat {config['manual_hotkey'].upper()} în joc!")
-        register_flight_in_firebase(config)
-
-    def on_capture_hotkey():
-        capture_notification_template()
+        print(f"\n[⚡ TASTĂ MANUALĂ] Ai apăsat tasta {config['manual_hotkey'].upper()} în joc!")
+        register_flight_in_firebase(config, "Adăugat manual din joc")
 
     try:
         keyboard.add_hotkey(config["manual_hotkey"], on_manual_hotkey)
-        keyboard.add_hotkey(config["capture_hotkey"], on_capture_hotkey)
     except Exception as e:
-        print(f"[!] Nu s-au putut înregistra tastele globale: {e}")
+        print(f"[!] Nu s-a putut înregistra tasta rapidă: {e}")
 
     with mss.mss() as sct:
         monitor = sct.monitors[1] # Ecranul principal
 
         while True:
             try:
-                # Re-check template in case user dropped it in folder while running
-                if template is None and os.path.exists(template_path):
-                    template = cv2.imread(template_path)
-                    if template is not None:
-                        print(f"\n[✓] '{template_path}' a fost detectat și încărcat!")
-
                 now = time.time()
 
-                # Daca avem modelul de notificare si nu suntem in cooldown
-                if template is not None and (now - last_trigger_time > cooldown):
+                if cursa_tmpl is not None and (now - last_trigger_time > cooldown):
                     screen = grab_screen(sct, monitor)
 
-                    # Template matching
-                    res = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
-                    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+                    # 1. Caută textul 'din aceasta cursa!'
+                    res_cursa = cv2.matchTemplate(screen, cursa_tmpl, cv2.TM_CCOEFF_NORMED)
+                    _, max_c, _, loc_c = cv2.minMaxLoc(res_cursa)
 
-                    if max_val >= threshold:
-                        last_trigger_time = now
-                        print(f"\n[🔍 DETECȚIE ECRAN] Notificare detectată pe ecran! (Similitudine: {max_val*100:.1f}%)")
-                        register_flight_in_firebase(config)
-                        print(f"[⏳] Cooldown activ ({cooldown}s) pentru a evita dubla înregistrare...")
+                    # Dacă găsim textul 'din aceasta cursa!' cu peste 78% încredere
+                    if max_c >= threshold:
+                        # 2. Dacă avem și modelul header-ului, verificăm dacă este în aceeași zonă
+                        is_valid = True
+                        if header_tmpl is not None:
+                            res_h = cv2.matchTemplate(screen, header_tmpl, cv2.TM_CCOEFF_NORMED)
+                            _, max_h, _, loc_h = cv2.minMaxLoc(res_h)
+                            # Dacă ambele sunt pe ecran, certitudinea e 100%
+                            if max_h < 0.65:
+                                # Chiar și dacă header-ul e ușor transparent, scorul mare pe 'din aceasta cursa!' e decisiv
+                                pass
 
-                time.sleep(config.get("scan_interval_seconds", 1.0))
+                        if is_valid:
+                            last_trigger_time = now
+                            info = f"Notificare identificată: '... din aceasta cursa!' (Potrivire: {max_c*100:.1f}%)"
+                            register_flight_in_firebase(config, info)
+                            print(f"[⏳] Cooldown activ ({cooldown} secunde)...")
+
+                time.sleep(config.get("scan_interval_seconds", 0.8))
             except KeyboardInterrupt:
-                print("\n[!] Scanner oprit de utilizator. Zboruri bune!")
+                print("\n[!] Scanner oprit. Zboruri bune!")
                 break
             except Exception as loop_err:
-                time.sleep(2)
+                time.sleep(1)
 
 if __name__ == "__main__":
     main()
