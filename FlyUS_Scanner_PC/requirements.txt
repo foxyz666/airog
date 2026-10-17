@@ -1,0 +1,6 @@
+opencv-python
+mss
+requests
+keyboard
+pillow
+numpy
