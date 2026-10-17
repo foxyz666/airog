@@ -2,9 +2,9 @@
 =============================================================================
  ✈️ FlyUS Auto-Scanner • GTA 5 Roleplay (OGLAND Romania & FiveM)
  Monitorizează ecranul pe PC în timp ce te joci GTA 5 / FiveM.
- DETECTEAZĂ EXCLUSIV NOTIFICAREA DE CURSĂ:
+ DETECTEAZĂ EXCLUSIV NOTIFICAREA DE CURSĂ (Prag strict: 97%+):
  "Ai obtinut XXXX$ din aceasta cursa!"
- Ignoră orice altă notificare (joint, mâncare, mesaje, reparații etc.)!
+ Ignoră orice altă notificare (joint, mâncare, mesaje, etc.) sub 97%!
 =============================================================================
 """
 
@@ -26,7 +26,7 @@ HEADER_TEMPLATE_FILE = "notificare_template.png"
 DEFAULT_CONFIG = {
     "username": "ion",
     "database_url": "https://aircraft-9cb9b-default-rtdb.europe-west1.firebasedatabase.app",
-    "confidence_threshold": 0.78,
+    "confidence_threshold": 0.97, # STRICT: 97% sau mai mult!
     "cooldown_seconds": 15,
     "scan_interval_seconds": 0.8,
     "manual_hotkey": "f10",
@@ -96,13 +96,13 @@ def register_flight_in_firebase(config, detected_info=""):
 
         patch_resp = requests.patch(url, json=update_payload, timeout=5)
         if patch_resp.status_code == 200:
-            print("\n" + "="*65)
+            print("\n" + "="*68)
             print(f" ✈️ [CURSĂ VALIDATĂ!] {detected_info}")
             print(f" 👤 Pilot: {username}")
             print(f" 🎯 Contor actualizat: {current} / {target} curse (mai ai {max(0, target - current)})")
             print(f" 💰 Încasat la tură: ${current * pay:,}")
             print(f" 📱 Telefonul tău s-a sincronizat automat!")
-            print("="*65 + "\n")
+            print("="*68 + "\n")
             if config.get("play_sound", True):
                 play_cockpit_beep()
             return True
@@ -125,9 +125,11 @@ def main():
     print("="*68)
 
     config = load_config()
+    threshold = float(config.get("confidence_threshold", 0.97))
 
     print(f"\n[i] Pilot activ: {config['username']}")
-    print(f"[i] Filtru text: Detectează STRICT 'din aceasta cursa!' (ignoră joint/food/mesaje)")
+    print(f"[i] PRAG DE ÎNCREDERE STRICT: {threshold*100:.1f}%")
+    print(f"    --> Dacă potrivirea este sub {threshold*100:.1f}%, NU se înregistrează!")
     print(f"[i] Cooldown între curse: {config['cooldown_seconds']}s")
     print(f"[i] Tastă rapidă de urgență în joc: [{config['manual_hotkey'].upper()}]\n")
 
@@ -137,31 +139,26 @@ def main():
 
     if os.path.exists(CURSA_TEMPLATE_FILE):
         cursa_tmpl = cv2.imread(CURSA_TEMPLATE_FILE)
-        print(f"[✓] Model text cursa '{CURSA_TEMPLATE_FILE}' încărcat cu succes!")
-    else:
-        # Fallback to general notificare.png if specific file not found
-        if os.path.exists("notificare.png"):
-            cursa_tmpl = cv2.imread("notificare.png")
-            print(f"[✓] Model 'notificare.png' încărcat!")
+        print(f"[✓] Model text cursa '{CURSA_TEMPLATE_FILE}' încărcat!")
+    elif os.path.exists("notificare.png"):
+        cursa_tmpl = cv2.imread("notificare.png")
+        print(f"[✓] Model 'notificare.png' încărcat!")
 
     if os.path.exists(HEADER_TEMPLATE_FILE):
         header_tmpl = cv2.imread(HEADER_TEMPLATE_FILE)
-        print(f"[✓] Model antet notificare '{HEADER_TEMPLATE_FILE}' încărcat!")
+        print(f"[✓] Model antet '{HEADER_TEMPLATE_FILE}' încărcat!")
 
     if cursa_tmpl is None:
         print("[!] ATENȚIE: Nu s-a găsit fișierul model de detecție!")
-        print("    Asigură-te că fișierul 'din_aceasta_cursa.png' se află în acest folder.")
 
     print("\n" + "-"*68)
-    print("🟢 SCANNER INTELIGENT ACTIV! Lasă această fereastră deschisă și joacă.")
-    print("   - Detectează automat orice sumă: 'Ai obtinut XXXX$ din aceasta cursa!'")
-    print("   - Ignoră complet celelalte notificări (joint, mâncare, etc.)")
+    print(f"🟢 SCANNER ACTIV (Detectează doar de la {threshold*100:.1f}% în sus)!")
+    print("   - Ignoră jointurile, mâncarea sau orice alt mesaj sub 97%")
     print("   - Apasă Ctrl+C pentru a opri.")
     print("-" * 68 + "\n")
 
     last_trigger_time = 0
     cooldown = config.get("cooldown_seconds", 15)
-    threshold = config.get("confidence_threshold", 0.78)
 
     # Hotkey support
     def on_manual_hotkey():
@@ -176,7 +173,7 @@ def main():
     try:
         keyboard.add_hotkey(config["manual_hotkey"], on_manual_hotkey)
     except Exception as e:
-        print(f"[!] Nu s-a putut înregistra tasta rapidă: {e}")
+        print(f"[!] Nu s-au putut înregistra tastele: {e}")
 
     with mss.mss() as sct:
         monitor = sct.monitors[1] # Ecranul principal
@@ -192,23 +189,15 @@ def main():
                     res_cursa = cv2.matchTemplate(screen, cursa_tmpl, cv2.TM_CCOEFF_NORMED)
                     _, max_c, _, loc_c = cv2.minMaxLoc(res_cursa)
 
-                    # Dacă găsim textul 'din aceasta cursa!' cu peste 78% încredere
+                    # Dacă scorul este mare (peste 97%)
                     if max_c >= threshold:
-                        # 2. Dacă avem și modelul header-ului, verificăm dacă este în aceeași zonă
-                        is_valid = True
-                        if header_tmpl is not None:
-                            res_h = cv2.matchTemplate(screen, header_tmpl, cv2.TM_CCOEFF_NORMED)
-                            _, max_h, _, loc_h = cv2.minMaxLoc(res_h)
-                            # Dacă ambele sunt pe ecran, certitudinea e 100%
-                            if max_h < 0.65:
-                                # Chiar și dacă header-ul e ușor transparent, scorul mare pe 'din aceasta cursa!' e decisiv
-                                pass
-
-                        if is_valid:
-                            last_trigger_time = now
-                            info = f"Notificare identificată: '... din aceasta cursa!' (Potrivire: {max_c*100:.1f}%)"
-                            register_flight_in_firebase(config, info)
-                            print(f"[⏳] Cooldown activ ({cooldown} secunde)...")
+                        last_trigger_time = now
+                        info = f"Notificare identificată cu precizie de {max_c*100:.2f}% (depășește pragul de {threshold*100:.1f}%)"
+                        register_flight_in_firebase(config, info)
+                        print(f"[⏳] Cooldown activ ({cooldown} secunde)...")
+                    elif max_c >= 0.70:
+                        # Afiseaza in consola daca a detectat o notificare similara dar a respins-o pentru ca e sub 97%!
+                        print(f"[ℹ️ IGNORAT] Notificare detectată pe ecran ({max_c*100:.1f}%), dar este SUB pragul cerut de {threshold*100:.1f}% -> REFUZAT!")
 
                 time.sleep(config.get("scan_interval_seconds", 0.8))
             except KeyboardInterrupt:

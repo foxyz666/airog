@@ -1,10 +1,10 @@
 {
     "username": "ion",
     "database_url": "https://aircraft-9cb9b-default-rtdb.europe-west1.firebasedatabase.app",
-    "template_image": "notificare.png",
-    "confidence_threshold": 0.80,
+    "template_image": "din_aceasta_cursa.png",
+    "confidence_threshold": 0.97,
     "cooldown_seconds": 15,
-    "scan_interval_seconds": 1.0,
+    "scan_interval_seconds": 0.8,
     "manual_hotkey": "f10",
     "capture_hotkey": "f9",
     "play_sound": true
